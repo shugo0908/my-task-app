@@ -72,9 +72,10 @@ export default function App() {
             color: newTask.color,
             position: { x: 0, y: 0 },
             status: 'todo',
+	    dueDate: newTask.dueDate || null,
         };
         setTasks(currentTasks => [...currentTasks, newTaskObject]);
-        setNewTask({ title: '', color: '#ffec99' });
+        setNewTask({ title: '', color: '#ffec99', dueDate: '' });
     };
 
     const handleUpdatePosition = useCallback((taskId, position) => {
@@ -181,9 +182,12 @@ export default function App() {
             </main>
 
             <aside className="w-full lg:w-1/3 bg-gray-800 rounded-2xl p-6 flex flex-col gap-6 shadow-2xl">
+               
+
                 {/*【変更点②】設定ボタンを追加*/}
                 <div className="flex justify-between items-center">
                     <h2 className="text-xl font-semibold text-cyan-400">タスクを追加</h2>
+                    {/* ★★★ この行の ...Name を className に修正 ★★★ */}
                     <button onClick={() => setIsSettingsOpen(true)} className="text-gray-400 hover:text-cyan-400 text-2xl" title="設定">⚙️</button>
                 </div>
                 {/*【変更点③】onAddTaskを渡すように変更*/}
@@ -350,12 +354,16 @@ function StickyNote({ task, planeSize, onDragStop, onDoubleClick }) {
                 boxShadow: task.status === 'doing' ? `0 0 15px 5px ${task.color}` : '5px 5px 15px rgba(0,0,0,0.3)',
                 transition: 'box-shadow 0.3s, opacity 0.3s',
             }}
-            className="p-3 w-32 h-32 rounded-lg text-gray-900 font-semibold text-sm flex items-center justify-center text-center break-words select-none"
-            onMouseDown={handleMouseDown}
+                className="p-3 w-32 h-32 rounded-lg text-gray-900 font-semibold text-sm flex flex-col items-center justify-center text-center break-words select-none"  onMouseDown={handleMouseDown}
             onDoubleClick={onDoubleClick}
             title="ダブルクリックしてタイマーを開始"
         >
-            {task.title}
+            <span>{task.title}</span>
+            {task.dueDate && (
+                <span className="text-xs font-normal mt-2 opacity-75">
+                    {task.dueDate}
+                </span>
+            )}
         </div>
     );
 }
@@ -392,6 +400,12 @@ function AddTaskForm({ newTask, setNewTask, onAddTask }) {
                 placeholder="新しいタスク名..."
                 className="bg-gray-700 border-2 border-transparent focus:border-cyan-400 focus:ring-0 rounded-lg px-4 py-2 text-white outline-none"
             />
+	    <input
+                type="date"
+                value={newTask.dueDate || ''}
+                onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
+                className="bg-gray-700 border-2 border-transparent focus:border-cyan-400 focus:ring-0 rounded-lg px-4 py-2 text-white outline-none"
+            />
             <div className="flex gap-2">
                 {colors.map(color => (
                     <button
@@ -415,11 +429,26 @@ function AddTaskForm({ newTask, setNewTask, onAddTask }) {
     );
 }
 
+// src/App.jsx の TaskItem コンポーネント
+
 function TaskItem({ task, onDelete, onUpdateStatus, onStartTimer, isActive }) {
     return (
+        // ★★★ 1. ここの className の書き方を修正 (バックティック ` ` を使う) ★★★
         <div className={`p-3 mb-2 rounded-lg flex items-center gap-3 transition-all ${isActive ? 'bg-cyan-900/50' : 'bg-gray-700/50 hover:bg-gray-700'}`}>
             <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: task.color }}></div>
-            <p className={`flex-grow ${task.status === 'done' ? 'line-through text-gray-500' : ''}`}>{task.title}</p>
+            
+            {/* ★★★ 2. 〆切日を表示するように、このブロック全体を修正 ★★★ */}
+            <div className="flex-grow">
+                <p className={`${task.status === 'done' ? 'line-through text-gray-500' : ''}`}>
+                    {task.title}
+                </p>
+                {task.dueDate && task.status !== 'done' && (
+                    <p className="text-xs text-gray-400">
+                        〆切: {task.dueDate}
+                    </p>
+                )}
+            </div>
+            
             {task.status !== 'done' && (
                  <div className="flex gap-1">
                     <button onClick={() => onStartTimer(task, 'pomodoro')} title="ポモドーロ開始" className="text-gray-400 hover:text-cyan-400">🍅</button>
