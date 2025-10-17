@@ -287,11 +287,13 @@ function CartesianPlane({ tasks, onUpdatePosition, axisLabels, onAxisLabelChange
     );
 }
 
+// src/App.jsx の StickyNote コンポーネント
+
 function StickyNote({ task, planeSize, onDragStop, onDoubleClick }) {
     const [isDragging, setIsDragging] = useState(false);
-    const [position, setPosition] = useState({
-        x: planeSize / 2 + task.position.x,
-        y: planeSize / 2 - task.position.y
+    const [position, setPosition] = useState({ 
+        x: planeSize / 2 + task.position.x, 
+        y: planeSize / 2 - task.position.y 
     });
     const noteRef = React.useRef(null);
 
@@ -302,6 +304,7 @@ function StickyNote({ task, planeSize, onDragStop, onDoubleClick }) {
         });
     }, [task.position, planeSize]);
 
+    // --- マウス操作 ---
     const handleMouseDown = (e) => {
         setIsDragging(true);
         e.preventDefault();
@@ -325,20 +328,68 @@ function StickyNote({ task, planeSize, onDragStop, onDoubleClick }) {
         const data = { x: position.x, y: position.y };
         onDragStop(e, data, task.id);
     }, [isDragging, position, onDragStop, task.id]);
+    
 
+    // ★★★ ここから下、タッチ操作のロジックを丸ごと追加 ★★★
+    
+    // --- タッチ操作 ---
+    const handleTouchStart = (e) => {
+        setIsDragging(true);
+        // ここでは preventDefault しない (ダブルクリックを妨げないため)
+    };
+
+    const handleTouchMove = useCallback((e) => {
+        if (!isDragging || !noteRef.current || e.touches.length === 0) return;
+
+        // ドラッグ中に画面がスクロールするのを防ぐ
+        e.preventDefault(); 
+
+        const touch = e.touches[0];
+        const parentRect = noteRef.current.parentElement.getBoundingClientRect();
+        let newX = touch.clientX - parentRect.left - noteRef.current.offsetWidth / 2;
+        let newY = touch.clientY - parentRect.top - noteRef.current.offsetHeight / 2;
+
+        // 画面外にはみ出さないように制限
+        newX = Math.max(0, Math.min(newX, parentRect.width - noteRef.current.offsetWidth));
+        newY = Math.max(0, Math.min(newY, parentRect.height - noteRef.current.offsetHeight));
+
+        setPosition({ x: newX, y: newY });
+    }, [isDragging]);
+
+    const handleTouchEnd = useCallback((e) => {
+        if (!isDragging) return;
+        setIsDragging(false);
+        // タッチ終了時は座標情報が送られないため、最後のstateの位置を使う
+        const data = { x: position.x, y: position.y };
+        onDragStop(e, data, task.id);
+    }, [isDragging, position, onDragStop, task.id]);
+
+
+    // ★★★ useEffect を修正し、タッチイベントのリスナーも追加 ★★★
     useEffect(() => {
         if (isDragging) {
+            // マウスイベント
             window.addEventListener('mousemove', handleMouseMove);
             window.addEventListener('mouseup', handleMouseUp);
+            // タッチイベント
+            // passive: false にして、handleTouchMove 内の preventDefault を有効にする
+            window.addEventListener('touchmove', handleTouchMove, { passive: false }); 
+            window.addEventListener('touchend', handleTouchEnd);
         } else {
+            // イベントリスナーをすべて削除
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('touchend', handleTouchEnd);
         }
         return () => {
+            // コンポーネントが消える際にも、念のためすべて削除
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('touchend', handleTouchEnd);
         };
-    }, [isDragging, handleMouseMove, handleMouseUp]);
+    }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
 
     return (
         <div
@@ -354,8 +405,10 @@ function StickyNote({ task, planeSize, onDragStop, onDoubleClick }) {
                 boxShadow: task.status === 'doing' ? `0 0 15px 5px ${task.color}` : '5px 5px 15px rgba(0,0,0,0.3)',
                 transition: 'box-shadow 0.3s, opacity 0.3s',
             }}
-                className="p-3 w-32 h-32 rounded-lg text-gray-900 font-semibold text-sm flex flex-col items-center justify-center text-center break-words select-none"  onMouseDown={handleMouseDown}
+            className="p-3 w-32 h-32 rounded-lg text-gray-900 font-semibold text-sm flex flex-col items-center justify-center text-center break-words select-none"
+            onMouseDown={handleMouseDown}
             onDoubleClick={onDoubleClick}
+            onTouchStart={handleTouchStart} // ★★★ onTouchStart ハンドラを追加 ★★★
             title="ダブルクリックしてタイマーを開始"
         >
             <span>{task.title}</span>
@@ -367,7 +420,6 @@ function StickyNote({ task, planeSize, onDragStop, onDoubleClick }) {
         </div>
     );
 }
-
 
 function EditableLabel({ value, onChange, className }) {
     return (
